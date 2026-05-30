@@ -156,7 +156,7 @@ struct RadialPacingGauge: View {
     }
 
     private func arcPoint(center: CGPoint, radius: CGFloat, degrees: Double) -> CGPoint {
-        let rad = degrees * .pi / 180
+        let rad = CGFloat(degrees * .pi / 180)
         return CGPoint(
             x: center.x + cos(rad) * radius,
             y: center.y + sin(rad) * radius

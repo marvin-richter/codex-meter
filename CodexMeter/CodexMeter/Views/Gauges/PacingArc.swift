@@ -104,7 +104,7 @@ struct PacingArc: View {
             // Target dot — marks the 100% landing. Slightly larger when
             // actually on pace.
             let dotRadius: CGFloat = isOnPace ? 1.2 : 0.8
-            let targetRad = targetDeg * .pi / 180
+            let targetRad = CGFloat(targetDeg * .pi / 180)
             let target = CGPoint(
                 x: center.x + cos(targetRad) * radius,
                 y: center.y + sin(targetRad) * radius
