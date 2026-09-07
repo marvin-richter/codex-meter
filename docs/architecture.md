@@ -8,10 +8,11 @@ The app is small enough that the architecture is also small. One actor, a couple
 CodexMeter/
   CodexMeterApp.swift           # @main, MenuBarExtra + Settings scene wiring
   Models/
-    UsageSnapshot.swift         # struct: holds 5h + 7d state
-    UsageWindow.swift           # struct: utilization, resetsAt
+    UsageSnapshot.swift         # struct: session + weekly windows, sorted by reported length
+    BankedResetInfo.swift       # struct: available reset count + earliest expiry
+    UsageWindow.swift           # struct: utilization, resetsAt, duration
     Projection.swift            # struct: paceRatio + outcome (onPace/over/under)
-    DisplayMode.swift           # enum TrackedWindow { fiveHour, sevenDay }
+    DisplayMode.swift           # enum TrackedWindow { session, weekly } + label/other/migration
     Threshold.swift             # 4-state bar fill classifier (neutral/normal/warning/critical)
     AppError.swift              # wraps TokenReader.ReadError + CodexAPI.APIError
   Services/
@@ -45,6 +46,7 @@ CodexMeter/
     Info.plist
 assets/icon.svg                  # source of truth for the app icon
 assets/fixtures/wham-usage.json  # redacted fixture from a real probe, used in parser tests
+assets/fixtures/wham-usage-dual-window.json  # archived shape from when session limits existed
 tools/render-icon.swift          # rasterizes icon.svg into the AppIcon set
 utils/                           # helper scripts (token probe, usage-API probe)
 docs/                            # all the specs that aren't code
@@ -60,10 +62,12 @@ Two stateful actors, plus pure helpers and a couple of `@Observable` settings cl
 
 **`UsagePoller`** owns the timer. On each tick: ask the `UsageProvider` for a snapshot, on success update the store, on failure record the error in the store and apply exponential backoff (capped at 5 minutes). On HTTP 429 with a `Retry-After` header, the next sleep honors the server's value as a one-shot override. The poller does not interpret data; it just moves bytes from the provider into the store.
 
+One cadence — 60s — in every state. The poller has no notion of whether the popover is open, because the endpoint rate-limits and polling harder while the user is looking is how you get stale data at the worst moment (see AGENTS.md's footprint constraint). `refreshNow()` is the only out-of-band poll, wired to the popover's refresh button.
+
 **Pure helpers** (not actors) for the rest:
 - `UsageProvider` — protocol with one method, `fetchUsage() async throws -> UsageSnapshot`. Single concrete implementation today (`CodexProvider`); the protocol exists so test fakes (and any future provider) swap in without touching the poller.
 - `CodexProvider` — combines token reading and HTTP fetch behind one entry point. Throws `TokenReader.ReadError` on auth failures and `CodexAPI.APIError` on fetch failures so the poller can surface different user-facing messages.
-- `CodexAPI` — given a token, return a parsed `UsageSnapshot` or throw a typed `APIError`.
+- `CodexAPI` — given a token, return a parsed `UsageSnapshot` or throw a typed `APIError`. When `/wham/usage` reports a positive banked-reset count, enriches the snapshot from the supplementary reset-credit endpoint; failure of that optional call leaves normal usage intact.
 - `TokenReader` — reads Codex CLI's locally-cached OAuth token from `~/.codex/auth.json`; see `docs/auth.md` for the protocol.
 - `Projector` — given a `UsageWindow` and the window's total duration, return a `Projection` (or `nil` when inputs can't yield a meaningful pace ratio).
 
@@ -80,7 +84,7 @@ The pure-helper rule matters because these are the parts that need unit tests. S
 - The poller is the only thing that triggers network activity
 - No `Task { ... }` started from a view body; if a view needs to react to user input, it sends an action to the store/poller
 
-The single mental model: **data flows in one direction.** Poller fetches → Store holds → Views render. Settings flow back the other way (view → store → poller, e.g. "user changed polling interval"), but data never does.
+The single mental model: **data flows in one direction.** Poller fetches → Store holds → Views render. Commands flow back the other way (view → poller — today that's only the refresh button calling `refreshNow()`), but data never does.
 
 ## Dependency rules
 
@@ -93,9 +97,9 @@ If a file needs to import something it shouldn't (e.g. a View importing `URLSess
 
 ## Testing strategy
 
-- **Unit tests:** `CodexAPI` parsers (the most likely thing to break when the endpoint shifts), `TokenReader.parseTokenFromAuthJSON` (auth.json schema), `Projector` math (pace ratio, on-pace band, dead-time, unused-fraction), `UsagePoller` interval/backoff logic against a fake `UsageProvider`.
+- **Unit tests:** `CodexAPI` parsers (the most likely thing to break when the endpoint shifts), window classification (`UsageSnapshot.classify` — which windows exist and which slot they land in is the part OpenAI actually changes), `TokenReader.parseTokenFromAuthJSON` (auth.json schema), `Projector` math (pace ratio, on-pace band, dead-time, unused-fraction), `UsagePoller` interval/backoff logic against a fake `UsageProvider`.
 - **Snapshot tests:** view `#Preview` blocks cover the common states (low/medium/high utilization, no data, error). When the app gets a more formal snapshot pipeline, expand from there.
-- **Manual smoke tests:** cold launch, auth file missing, network offline, 401, 500, both windows null, individual windows null. The hidden ⌥⌘⇧D debug panel in the settings sheet lets you preview every visual state without burning real quota.
+- **Manual smoke tests:** cold launch, auth file missing, network offline, 401, 500, both windows null, individual windows null. The hidden ⌥⌘⇧D debug panel in the settings sheet lets you preview every visual state without burning real quota, including the "API publishes a session window" toggle for the one-window vs. two-window popover layouts.
 
 No mocking framework. Hand-roll fakes — `UsageProvider` is one method, so a fake is three lines.
 
