@@ -401,6 +401,15 @@ struct UsagePopover: View {
     private var signInMessage: String? {
         guard let err = store.lastError else { return nil }
         switch err {
+        case .appServer(let error):
+            switch error {
+            case .notSignedIn: return "Run `codex login` with your ChatGPT account, then refresh."
+            case .cliMissing: return "Install Codex CLI to enable Codex Meter."
+            case .requestRejected: return "Open Codex CLI to check your sign-in and connection, then refresh."
+            case .launchFailed: return "Couldn’t start Codex CLI. Check its installation."
+            case .timedOut, .disconnected: return "Codex CLI is unavailable. Try refreshing."
+            case .malformedResponse: return "Update Codex CLI and Codex Meter, then refresh."
+            }
         case .tokenRead(let tokenErr):
             switch tokenErr {
             case .authFileMissing:

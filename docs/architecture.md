@@ -1,3 +1,5 @@
+> Current integration (2026-10-29): the app uses `AppServerProvider` and the documented local `codex app-server` interface. Direct HTTP/token-reading descriptions below are historical. See [app-server integration](app-server-prototype.md).
+
 # Architecture
 
 The app is small enough that the architecture is also small. One actor, a couple of stores, a handful of views, one provider protocol with one implementation, no clever patterns. Resist any urge to introduce dependency injection containers or coordinators — there are not enough moving parts to justify them.

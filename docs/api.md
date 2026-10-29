@@ -1,3 +1,5 @@
+> Current integration (2026-10-29): the app uses `AppServerProvider` and the documented local `codex app-server` interface. Direct HTTP/token-reading descriptions below are historical. See [app-server integration](app-server-prototype.md).
+
 # API: usage and banked resets
 
 This document pins the empirically observed shape of the Codex usage endpoints and how `codex-meter` parses them. **The endpoints are undocumented.** Re-verify after every Codex CLI version bump.

@@ -86,6 +86,11 @@ actor UsagePoller {
             let snapshot = try await provider.fetchUsage()
             await store.updateSnapshot(snapshot)
             consecutiveFailures = 0
+        } catch is CancellationError {
+            return
+        } catch let err as AppServerProvider.ProviderError {
+            await store.recordError(.appServer(err))
+            consecutiveFailures += 1
         } catch let err as TokenReader.ReadError {
             await store.recordError(.tokenRead(err))
             consecutiveFailures += 1

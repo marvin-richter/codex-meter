@@ -9,7 +9,7 @@ struct CodexMeterApp: App {
 
     init() {
         let store = UsageStore()
-        let poller = UsagePoller(store: store, provider: CodexProvider())
+        let poller = UsagePoller(store: store, provider: AppServerProvider())
         _store = State(initialValue: store)
         _launchAtLogin = State(initialValue: LaunchAtLogin())
         _settings = State(initialValue: AppSettings())

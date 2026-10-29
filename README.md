@@ -10,7 +10,7 @@ Based on [Mister-Meeseeks/codex-meter](https://github.com/Mister-Meeseeks/codex-
 
 - macOS 27 or newer
 - Full Xcode 27 or newer — the standalone command-line tools are not enough.
-- **Codex CLI installed and signed in.** codex-meter reads the bearer token Codex CLI caches at `~/.codex/auth.json`. Codex CLI does not need to be running; it just has to have completed `codex login` at least once. After that, codex-meter polls the same `wham/usage` endpoint Codex CLI itself uses for `/status`.
+- **Codex CLI installed and signed in with ChatGPT.** Verified with CLI 0.165.0. The CLI must remain installed; it does not need to be running. The Codex desktop app is not required.
 
 If you don't have Codex CLI: <https://developers.openai.com/codex>.
 
@@ -45,7 +45,11 @@ git pull --ff-only
 
 ## Codex Auth
 
-There are no Keychain dialogs. Codex CLI stores its tokens in plaintext at `~/.codex/auth.json`, so codex-meter just reads the file. macOS may prompt for the usual notarization / unidentified-developer warning.
+Codex Meter uses OpenAI’s documented [Codex app-server interface](https://learn.chatgpt.com/docs/app-server#auth-endpoints). On each refresh it starts a private, short-lived `codex app-server` process and requests `account/rateLimits/read` over local stdio for usage percentages, reset times, and banked resets. Codex CLI handles credential storage, token refresh, and authenticated requests to OpenAI; Codex Meter does not read or copy your tokens.
+
+Sign in once with `codex login` using your ChatGPT account. API-key-only accounts do not provide subscription quotas. Both file and Keychain credential storage are handled by Codex CLI.
+
+The app searches your PATH and common Homebrew, `~/.local/bin`, and `~/.cargo/bin` locations for `codex`.
 
 ## Coexistence with claude-meter
 

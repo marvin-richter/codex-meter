@@ -1,3 +1,5 @@
+> Current integration (2026-10-29): the app uses `AppServerProvider` and the documented local `codex app-server` interface. Direct HTTP/token-reading descriptions below are historical. See [app-server integration](app-server-prototype.md).
+
 # Auth: reading Codex CLI's locally-cached OAuth token
 
 codex-meter is a passive read-only consumer of Codex CLI's existing OAuth state. We don't run an OAuth flow, don't register a third-party client, and don't store our own tokens. On every poll we read the bearer token Codex CLI has cached on disk and use it for `wham/usage`, plus a supplementary reset-detail call only when the usage response reports a banked reset.
