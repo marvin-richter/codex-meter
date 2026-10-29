@@ -23,7 +23,7 @@ actor AppServerProvider: UsageProvider {
         if let pending { return try await pending.value }
         let executable = executableOverride
         let timeout = timeout
-        let task = Task { try await Self.fetch(executable: executable, timeout: timeout) }
+        let task = Task(priority: .background) { try await Self.fetch(executable: executable, timeout: timeout) }
         pending = task
         defer { pending = nil }
         return try await withTaskCancellationHandler {
@@ -47,6 +47,7 @@ actor AppServerProvider: UsageProvider {
 
     private static func fetch(executable: URL?, timeout: Duration) async throws -> UsageSnapshot {
         let process = Process()
+        process.qualityOfService = .background
         process.executableURL = try executable ?? Self.executable()
         process.arguments = ["app-server", "--stdio", "-c", "analytics.enabled=false"]
         let input = Pipe()

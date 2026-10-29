@@ -26,7 +26,7 @@ actor UsagePoller {
 
     func start() {
         guard task == nil else { return }
-        task = Task { [weak self] in
+        task = Task(priority: .background) { [weak self] in
             await self?.runLoop()
         }
     }
