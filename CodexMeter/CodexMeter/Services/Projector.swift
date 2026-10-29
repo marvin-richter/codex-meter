@@ -16,6 +16,19 @@ enum Projector {
     /// (no annotation). Drives popover annotation visibility.
     static let onPaceBand: Double = 5
 
+    /// API values below this percentage are treated as no meaningful usage.
+    /// Fresh windows can report tiny fractional `used_percent` noise; using
+    /// that as a burn rate makes the early-window pace ratio explode.
+    static let minimumMeaningfulUtilization: Double = 0.1
+
+    /// Minimum fraction of the window that must have elapsed before a
+    /// projection is computed. Guards against post-reset API lag: when a
+    /// window resets, `reset_at` advances immediately but `used_percent`
+    /// can briefly reflect the previous window's value. Without this guard,
+    /// a stale 99% util over ~175s of elapsed time produces a ~10000% pace
+    /// ratio. 1% of 5h = 180 s; 1% of 7d = ~100 min.
+    static let minimumElapsedFraction: Double = 0.01
+
     /// Returns the projection for a window, or `nil` when the inputs
     /// can't produce a meaningful pace ratio (no reset time, zero
     /// utilization, the window has just started, or the window is past
@@ -26,16 +39,15 @@ enum Projector {
         now: Date = Date()
     ) -> Projection? {
         let util = window.utilization
-        guard util > 0 else { return nil }
+        guard util >= minimumMeaningfulUtilization else { return nil }
         guard let resetsAt = window.resetsAt else { return nil }
 
         let secondsUntilReset = resetsAt.timeIntervalSince(now)
         guard secondsUntilReset > 0 else { return nil }
 
         let elapsed = windowDuration - secondsUntilReset
-        guard elapsed > 0 else { return nil }
+        guard elapsed / windowDuration >= minimumElapsedFraction else { return nil }
         let expectedUtil = (elapsed / windowDuration) * 100
-        guard expectedUtil > 0 else { return nil }
         let paceRatio = util / expectedUtil
 
         // Linear extrapolation: average burn rate so far carries forward.

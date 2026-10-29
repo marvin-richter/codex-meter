@@ -45,10 +45,10 @@ A pace ratio below 1.0 means under pace (using the subscription slower than woul
 The trade-off: bursty usage will over-project early in the window and under-project after the burst, but the function has no state and produces a value from poll #1. An EWMA smoothing layer was considered and dropped — `docs/backlog.md` notes the rationale.
 
 `Projector` returns `nil` whenever the inputs can't yield a meaningful pace ratio:
-- `utilization == 0` (nothing to extrapolate from)
+- `utilization < 0.1` (nothing meaningful to extrapolate from; avoids tiny fresh-window API noise)
 - `resetsAt` is missing
 - The window is past its reset (`secondsUntilReset ≤ 0`)
-- Zero elapsed time (poll happened before the window technically started)
+- Less than 1% of the window has elapsed — guards against post-reset API lag where `reset_at` advances to the new window immediately but `used_percent` still reflects the old window's value, which would produce a wildly inflated pace ratio (e.g. 99% stale util over 175s elapsed → ~10000%)
 
 The popover's radial gauges and status sentence both treat `nil` as "no projection available" and hide accordingly.
 
@@ -101,7 +101,7 @@ The asymmetric framing — burnout warns aggressively, under-utilization just su
 
 ## Menu bar color and dot triggers — both pace-ratio driven
 
-The menu-bar gauge body (vessel + pacing arc) flips to `criticalRed` when the **tracked** window's pace ratio exceeds `1.10`. Below that, it draws in the appearance-aware system label color (auto-tinted to match the menu bar text). Utilization alone never drives the color — a fresh window burning fast goes red even at low utilization, and a slow-burning window stays template even at 90% utilization.
+The menu-bar gauge body (vessel + pacing arc) flips to `criticalRed` when the **tracked** window's pace ratio exceeds `1.10`. Below that, it draws in the appearance-aware system label color (auto-tinted to match the menu bar text). If the tracked window has not meaningfully been used yet (`utilization < 0.1`), it draws in light gray instead of monochrome or red. Utilization alone never drives the critical color — a fresh window burning fast goes red even at low utilization, and a slow-burning window stays template even at 90% utilization.
 
 The non-tracked window's severity surfaces as a small dot in the upper-right of the gauge area:
 

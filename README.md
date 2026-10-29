@@ -4,12 +4,12 @@ A macOS menu bar app that displays Codex subscription usage.
 
 ![Codex Meter showing the menu bar gauge and popover open on a normal desktop](assets/screenshots/hero.png)
 
-A fork of [claude-meter](https://github.com/CrocSwap/claude-meter) targeting OpenAI's Codex CLI. Same battery-indicator UX, different backend.
+Based on [Mister-Meeseeks/codex-meter](https://github.com/Mister-Meeseeks/codex-meter), a fork of [claude-meter](https://github.com/CrocSwap/claude-meter) targeting OpenAI's Codex CLI. Same battery-indicator UX, different backend.
 
 ## Requirements
 
-- macOS 14 (Sonoma) or newer
-- Xcode 15+ (build) — the Xcode command-line tools alone are not enough; the asset compiler and SwiftUI previews ship with full Xcode
+- macOS 27 or newer
+- Full Xcode 27 or newer — the standalone command-line tools are not enough.
 - **Codex CLI installed and signed in.** codex-meter reads the bearer token Codex CLI caches at `~/.codex/auth.json`. Codex CLI does not need to be running; it just has to have completed `codex login` at least once. After that, codex-meter polls the same `wham/usage` endpoint Codex CLI itself uses for `/status`.
 
 If you don't have Codex CLI: <https://developers.openai.com/codex>.
@@ -17,9 +17,15 @@ If you don't have Codex CLI: <https://developers.openai.com/codex>.
 ## Quickstart
 
 ```sh
-git clone https://github.com/<your-fork>/codex-meter.git
+git clone https://github.com/marvin-richter/codex-meter.git
 cd codex-meter
 ./build.sh
+```
+
+Before building, open Xcode once to complete its setup. If your active developer directory points to the standalone command-line tools, select Xcode:
+
+```sh
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 ```
 
 **First launch:** macOS may prompt for the usual unidentified-developer warning.
@@ -28,7 +34,14 @@ No Dock icon — look for the vessel icon in the menu bar (top-right of the scre
 
 ## Build Script
 
-`build.sh` runs `xcodebuild` (Release configuration, output pinned to `./build/`) and then `open`s the app. Safe to re-run — incremental rebuilds are fast.
+`build.sh` builds the Release configuration into `./build/`, replaces `~/Applications/CodexMeter.app`, and launches the installed copy. Incremental builds reuse `./build/`. Quit Codex Meter before rebuilding an installed version.
+
+To update, pull the latest code and rebuild:
+
+```sh
+git pull --ff-only
+./build.sh
+```
 
 ## Codex Auth
 

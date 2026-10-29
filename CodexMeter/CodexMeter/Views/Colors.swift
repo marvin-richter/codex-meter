@@ -59,4 +59,14 @@ extension Color {
             ? NSColor(red: 0xF5 / 255, green: 0x9E / 255, blue: 0x0B / 255, alpha: 1)
             : NSColor(red: 0xD9 / 255, green: 0x77 / 255, blue: 0x06 / 255, alpha: 1)
     })
+
+    /// Light gray for a tracked menu-bar window that has not meaningfully
+    /// been used yet. It distinguishes "idle/fresh" from both normal
+    /// monochrome and critical red.
+    static let menuBarIdleGray = Color(nsColor: NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        return isDark
+            ? NSColor(red: 0xD1 / 255, green: 0xD5 / 255, blue: 0xDB / 255, alpha: 1)
+            : NSColor(red: 0xA8 / 255, green: 0xAF / 255, blue: 0xB8 / 255, alpha: 1)
+    })
 }

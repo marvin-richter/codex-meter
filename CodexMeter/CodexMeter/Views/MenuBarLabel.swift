@@ -150,7 +150,13 @@ struct MenuBarLabel: View {
     }
 
     private var gaugeColor: Color {
-        isOverPaceCritical ? .criticalRed : monoColor
+        if isTrackedEffectivelyUnused { return .menuBarIdleGray }
+        return isOverPaceCritical ? .criticalRed : monoColor
+    }
+
+    private var isTrackedEffectivelyUnused: Bool {
+        guard let u = trackedUtil else { return false }
+        return u < Projector.minimumMeaningfulUtilization
     }
 
     /// "Default" color for any non-critical element — matches the menu

@@ -64,7 +64,7 @@ Both labels render in the appearance-aware mono color (white in dark mode, black
 
 ### Color trigger
 
-The gauge body (both vessel and pacing arc) is **monochrome** until the tracked window's projected pace ratio exceeds **110%**, at which point both flip to `criticalRed`. Utilization alone never drives the color — a fresh window burning fast goes red even at low utilization, and a slow-burning window stays monochrome even at 90% utilization.
+The gauge body (both vessel and pacing arc) is **light gray** when the tracked window has not meaningfully been used yet (`utilization < 0.1`). After that, it is monochrome until the tracked window's projected pace ratio exceeds **110%**, at which point both flip to `criticalRed`. Utilization alone never drives the critical color — a fresh window burning fast goes red even at low utilization, and a slow-burning window stays monochrome even at 90% utilization.
 
 The composited image is rendered with `isTemplate = false` and explicit appearance-aware colors (`monoColor` reads `.colorScheme`). Template rendering would replace those colors with the menu-bar tint and cause text labels to flip from white to black when the gauge flipped red.
 

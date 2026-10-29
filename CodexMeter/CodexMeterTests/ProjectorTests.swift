@@ -18,6 +18,15 @@ struct ProjectorTests {
         #expect(p == nil)
     }
 
+    @Test("Tiny fresh-window utilization noise → nil")
+    func tinyUtilizationNoise() {
+        let window = UsageWindow(utilization: 0.05, resetsAt: Self.now.addingTimeInterval(Self.sessionDuration - 60))
+        let p = Projector.project(window: window,
+                                  windowDuration: Self.sessionDuration,
+                                  now: Self.now)
+        #expect(p == nil)
+    }
+
     @Test("Missing resetsAt → nil")
     func missingResetsAt() {
         let window = UsageWindow(utilization: 40, resetsAt: nil)
@@ -40,6 +49,19 @@ struct ProjectorTests {
     func noElapsedTime() {
         // resetsAt is exactly windowDuration in the future → elapsed = 0.
         let window = UsageWindow(utilization: 1, resetsAt: Self.now.addingTimeInterval(Self.sessionDuration))
+        let p = Projector.project(window: window,
+                                  windowDuration: Self.sessionDuration,
+                                  now: Self.now)
+        #expect(p == nil)
+    }
+
+    @Test("Post-reset API lag: stale 99% util with < 1% elapsed → nil")
+    func postResetStaleness() {
+        // reset_at just advanced to the new window (175s elapsed out of 18000s = 0.97%),
+        // but used_percent still reflects the old window's 99% — would produce ~10000% pace.
+        let elapsed = 175.0
+        let window = UsageWindow(utilization: 99,
+                                 resetsAt: Self.now.addingTimeInterval(Self.sessionDuration - elapsed))
         let p = Projector.project(window: window,
                                   windowDuration: Self.sessionDuration,
                                   now: Self.now)
