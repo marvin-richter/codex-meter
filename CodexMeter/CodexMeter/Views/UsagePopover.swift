@@ -382,22 +382,14 @@ struct UsagePopover: View {
         return store.lastRefresh
     }
 
-    /// Whether to render the "API currently unavailable" status line. True
-    /// when the most recent poll failed with an API error (rate limit,
-    /// network, server, etc.) and we still have a cached snapshot to show,
-    /// or when debug is forcing the unavailable state.
+    /// Keep cached data visibly marked as unavailable after a failed refresh.
     private var displayApiUnavailable: Bool {
         if settings.debug.enabled { return settings.debug.apiUnavailable }
-        guard case .api = store.lastError else { return false }
+        guard store.lastError != nil else { return false }
         return displaySnapshot != nil
     }
 
-    /// Inline, actionable error shown above the divider. Reserved for
-    /// sign-in problems and a few API errors that *require* user action
-    /// (unauthorized, scope mismatch, etc.). Generic API failures
-    /// (rate limit, network, 5xx) surface in the footer's "API currently
-    /// unavailable" line instead, since the cached snapshot is still
-    /// showing useful data and the user has nothing to do but wait.
+    /// Actionable provider error shown above the divider.
     private var signInMessage: String? {
         guard let err = store.lastError else { return nil }
         switch err {
@@ -410,28 +402,8 @@ struct UsagePopover: View {
             case .timedOut, .disconnected: return "Codex CLI is unavailable. Try refreshing."
             case .malformedResponse: return "Update Codex CLI and Codex Meter, then refresh."
             }
-        case .tokenRead(let tokenErr):
-            switch tokenErr {
-            case .authFileMissing:
-                return "Run `codex login` to enable Codex Meter."
-            case .authFileUnreadable:
-                return "Couldn't read ~/.codex/auth.json. Check file permissions."
-            case .authFileMalformed:
-                return "Codex CLI changed its auth format. Update Codex Meter."
-            case .noUsableToken:
-                return "Run `codex login` to refresh your sign-in."
-            }
-        case .api(let apiErr):
-            switch apiErr {
-            case .unauthorized:
-                return "Run `codex login` to refresh your sign-in."
-            case .forbidden:
-                return "Authorization rejected — your Codex plan may not allow this."
-            case .notFound, .decoding:
-                return "Codex Meter needs an update."
-            case .rateLimited, .server, .network, .invalidResponse, .unexpected:
-                return nil
-            }
+        case .unexpected:
+            return "Couldn’t refresh usage. Try refreshing again."
         }
     }
 }
@@ -478,6 +450,6 @@ private func bothWindowsSnapshot() -> UsageSnapshot {
 #Preview("Network error with stale snapshot") {
     let store = UsageStore()
     store.updateSnapshot(bothWindowsSnapshot(), at: Date().addingTimeInterval(-15 * 60))
-    store.recordError(.api(.network(underlying: URLError(.notConnectedToInternet))))
+    store.recordError(.appServer(.disconnected))
     return UsagePopover(store: store, settings: AppSettings(), onRefresh: {}, onQuit: {})
 }

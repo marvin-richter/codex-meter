@@ -14,7 +14,7 @@ final class UsageStore {
     private(set) var lastRefresh: Date?
     private(set) var lastError: AppError?
 
-    /// Window lengths used only when the API omits `limit_window_seconds`.
+    /// Window lengths used only when the API omits window duration.
     /// The value the response reports always wins — these are the last
     /// resort so a projection is still possible from a window that didn't
     /// say how long it is.

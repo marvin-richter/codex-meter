@@ -29,6 +29,6 @@ Do not silently fall back to direct credential reads if app-server fails.
 
 Verified the actual provider against CLI 0.165.0: both windows and banked-reset details mapped successfully. Reset expiry accepts Unix seconds (observed live) and ISO dates. Count-only reset data remains hidden because the existing presentation requires an expiry.
 
-The original HTTP and token-reader helpers remain for historical tests and developer probes; the shipping app no longer calls them.
+The legacy HTTP backend, credential readers, and token-printing scripts have been removed.
 
 Reference: https://learn.chatgpt.com/docs/app-server

@@ -37,3 +37,62 @@ struct AppServerProviderTests {
         }
     }
 }
+
+struct WindowClassificationTests {
+    @Test func placesSwappedWindowsByDuration() {
+        let weekly = UsageWindow(utilization: 40, resetsAt: nil, duration: 604800)
+        let session = UsageWindow(utilization: 10, resetsAt: nil, duration: 18000)
+        let result = UsageSnapshot.classify(primary: weekly, secondary: session)
+        #expect(result.session == session)
+        #expect(result.weekly == weekly)
+    }
+    @Test func missingDurationsUsePositionalFallback() {
+        let primary = UsageWindow(utilization: 10, resetsAt: nil)
+        let secondary = UsageWindow(utilization: 40, resetsAt: nil)
+        let result = UsageSnapshot.classify(primary: primary, secondary: secondary)
+        #expect(result.session == primary)
+        #expect(result.weekly == secondary)
+    }
+}
+
+struct AppServerProcessTests {
+    private func withScript(_ body: String, test: (URL) async throws -> Void) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = directory.appendingPathComponent("codex")
+        try Data(("#!/bin/sh\n" + body + "\n").utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
+        try await test(script)
+    }
+
+    @Test func stalledChildTimesOut() async throws {
+        try await withScript("exec /bin/sleep 60") { executable in
+            let provider = AppServerProvider(executable: executable, timeout: .milliseconds(100))
+            do {
+                _ = try await provider.fetchUsage()
+                Issue.record("Expected timeout")
+            } catch AppServerProvider.ProviderError.timedOut { }
+        }
+    }
+
+    @Test func childExitIsReported() async throws {
+        try await withScript("exit 0") { executable in
+            let provider = AppServerProvider(executable: executable)
+            await #expect(throws: (any Error).self) { try await provider.fetchUsage() }
+        }
+    }
+
+    @Test func cancellingStalledChildReturnsPromptly() async throws {
+        try await withScript("exec /bin/sleep 60") { executable in
+            let provider = AppServerProvider(executable: executable)
+            let task = Task { try await provider.fetchUsage() }
+            try await Task.sleep(for: .milliseconds(50))
+            task.cancel()
+            do {
+                _ = try await task.value
+                Issue.record("Expected cancellation")
+            } catch is CancellationError { }
+        }
+    }
+}

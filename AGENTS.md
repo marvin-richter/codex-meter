@@ -22,13 +22,13 @@ A user installs via Homebrew, launches once, and forever after has ambient aware
 ## Tech stack
 
 - Swift 5.9+, SwiftUI with `MenuBarExtra` (macOS 14+)
-- `URLSession` for HTTP. **No third-party dependencies** without explicit approval. (We don't link Security.framework / CommonCrypto in this fork — the auth path is a plain JSON file read.)
+- Codex app-server over private stdio for quota reads. **No third-party dependencies** without explicit approval. (Codex CLI owns credential storage.)
 - Swift structured concurrency (`async/await`, actors) — no GCD callbacks
 - Observation macros (`@Observable`) for UI state, not Combine
 - `os.Logger` with subsystem `dev.codexmeter` — no `print()`
 - Build via Xcode project committed to repo
 
-Min macOS: 14.0 (Sonoma). Gives us `MenuBarExtra` and the `@Observable` macro for SwiftUI state.
+Supported setup: macOS 27 and Xcode 27 or newer. The deployment target may remain lower; older releases are not tested.
 
 ## Code style
 
@@ -59,7 +59,7 @@ For v1.x roadmap items (notifications, sparklines, auto-update), see `docs/backl
 **Ask before:**
 - Adding any dependency
 - Changing API contract assumptions (see `docs/api.md`)
-- Touching the auth file path or token-extraction logic (see `docs/auth.md`)
+- Changing the authentication boundary (see `docs/auth.md`)
 - Touching code signing or notarization
 - Expanding beyond v1 scope (see `docs/backlog.md` for what's deferred)
 
@@ -75,7 +75,7 @@ For v1.x roadmap items (notifications, sparklines, auto-update), see `docs/backl
 |---|---|
 | Architecture, module layout, dependency rules | `docs/architecture.md` |
 | API endpoint, response shape, error matrix | `docs/api.md` |
-| Reading Codex CLI's cached OAuth token | `docs/auth.md` |
+| Codex CLI authentication boundary | `docs/auth.md` |
 | Metric calculation, projections, EWMA | `docs/metrics.md` |
 | Menu bar gauge, popover, visual specs | `docs/ui.md` |
 | Colors, icon, README, marketing | `docs/brand.md` |

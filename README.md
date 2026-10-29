@@ -79,5 +79,4 @@ xcodebuild -project CodexMeter/CodexMeter.xcodeproj \
 - `docs/` — architecture, metrics, UI, brand, API, auth, backlog
 - `assets/` — brand assets (canonical icon SVG), `fixtures/` for parser test data, `screenshots/` for README images
 - `tools/render-icon.swift` — re-renders the AppIcon set from the SVG spec
-- `utils/extract-codex-token.sh` — prints the cached Codex CLI bearer token (for the `probe-codex-usage-api.sh` helper)
-- `utils/probe-codex-usage-api.sh` — fetches the live `wham/usage` endpoint and saves a fresh fixture
+- `tools/probe-app-server.swift` — standalone probe of the local quota interface

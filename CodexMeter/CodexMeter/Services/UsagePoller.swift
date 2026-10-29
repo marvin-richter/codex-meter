@@ -2,22 +2,8 @@ import Foundation
 
 /// Drives `UsageStore` with periodic API calls. Owns its task lifecycle.
 ///
-/// **One cadence, 60s, in every state.** The `wham/usage` endpoint rate-
-/// limits aggressively, so polling harder while the popover is open just
-/// trips the limiter sooner — and a tripped limiter shows the user stale
-/// data at exactly the moment they're looking at it. The poller therefore
-/// doesn't know or care whether the popover is open; `refreshNow()` is the
-/// only way to force an out-of-band poll, wired to the popover's refresh
-/// button. Don't reintroduce an "active" interval.
-///
-/// On error, exponential backoff with a 5-minute ceiling; if the server
-/// provides a `Retry-After` it's honored as a one-shot override.
-///
-/// The poller does not interpret data; it just moves bytes from the
-/// provider into the store. Errors are categorized by concrete type
-/// (`TokenReader.ReadError` vs `CodexAPI.APIError`) so the view layer
-/// can show different user-facing messages for "needs sign-in" vs
-/// "endpoint failed."
+/// Polls every 60 seconds in all UI states. Refresh is the only out-of-band
+/// poll; failures use exponential backoff capped at five minutes.
 actor UsagePoller {
     private let store: UsageStore
     private let provider: any UsageProvider
@@ -26,11 +12,6 @@ actor UsagePoller {
 
     private var task: Task<Void, Never>?
     private var consecutiveFailures: Int = 0
-    /// One-shot override applied to the next sleep, set when the API tells
-    /// us explicitly when to retry (e.g. `Retry-After` on a 429). Cleared
-    /// after it's consumed.
-    private var nextDelayOverride: TimeInterval?
-
     init(
         store: UsageStore,
         provider: any UsageProvider,
@@ -64,9 +45,6 @@ actor UsagePoller {
 
     // Exposed for tests; computes the next sleep interval given current state.
     func nextInterval() -> TimeInterval {
-        if let override = nextDelayOverride {
-            return min(override, backoffCeiling)
-        }
         guard consecutiveFailures > 0 else { return interval }
         let backoff = interval * pow(2.0, Double(consecutiveFailures - 1))
         return min(backoff, backoffCeiling)
@@ -76,7 +54,6 @@ actor UsagePoller {
         while !Task.isCancelled {
             await pollOnce()
             let seconds = nextInterval()
-            nextDelayOverride = nil
             try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         }
     }
@@ -91,19 +68,8 @@ actor UsagePoller {
         } catch let err as AppServerProvider.ProviderError {
             await store.recordError(.appServer(err))
             consecutiveFailures += 1
-        } catch let err as TokenReader.ReadError {
-            await store.recordError(.tokenRead(err))
-            consecutiveFailures += 1
-        } catch let err as CodexAPI.APIError {
-            await store.recordError(.api(err))
-            consecutiveFailures += 1
-            // Honor server-supplied Retry-After when the rate limiter sets
-            // one; otherwise let exponential backoff take over.
-            if case .rateLimited(let retryAfter) = err, let s = retryAfter, s > 0 {
-                nextDelayOverride = s
-            }
         } catch {
-            await store.recordError(.api(.network(underlying: error)))
+            await store.recordError(.unexpected)
             consecutiveFailures += 1
         }
     }

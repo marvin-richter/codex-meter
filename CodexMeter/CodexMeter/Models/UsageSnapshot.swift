@@ -1,26 +1,11 @@
 import Foundation
 
-/// Decoded subset of Codex's `wham/usage` response.
-///
-/// The API returns far more (per-feature buckets, credits, plan_type, etc.)
-/// — we only decode what v1 surfaces: the two rate-limit windows, sorted
-/// into slots by their reported length rather than by the positional
-/// `primary_window` / `secondary_window` keys they arrive in. See
-/// `classify(primary:secondary:)` for why. `CodexAPI` enriches the decoded
-/// snapshot with banked-reset details from the companion endpoint when any
-/// resets are available.
-///
-/// Either slot may be `nil`: OpenAI publishes whichever windows currently
-/// apply to the account, and that set changes. As of 2026-07-27 only the
-/// weekly window is published.
-struct UsageSnapshot: Decodable, Equatable, Sendable {
-    /// The short "session" window — 5h (`limit_window_seconds: 18000`)
-    /// whenever OpenAI publishes one. `nil` since session limits were
-    /// dropped; the app treats its return as a normal state, not an
-    /// upgrade.
+/// Usage windows and reset details returned by Codex app-server.
+struct UsageSnapshot: Equatable, Sendable {
+    /// The short session window, when published by Codex.
     let session: UsageWindow?
 
-    /// The long rolling window — 7d (`604800`) today.
+    /// The long weekly window, when published by Codex.
     let weekly: UsageWindow?
 
     /// Banked reset count and nearest expiry. `nil` when no reset is
@@ -76,7 +61,7 @@ struct UsageSnapshot: Decodable, Equatable, Sendable {
     /// says 18000 wherever it appears.
     ///
     /// Falls back to the historical positional mapping for any window that
-    /// omits `limit_window_seconds`, which is the best guess available
+    /// omits reported duration, which is the best guess available
     /// when the identifying field is missing.
     static func classify(
         primary: UsageWindow?,
@@ -96,7 +81,7 @@ struct UsageSnapshot: Decodable, Equatable, Sendable {
             }
         }
 
-        // Legacy fallback for windows with no `limit_window_seconds`, only
+        // Legacy fallback for windows with no reported duration, only
         // for slots nothing else claimed.
         if let primary, primary.duration == nil, session == nil { session = primary }
         if let secondary, secondary.duration == nil, weekly == nil { weekly = secondary }
@@ -104,30 +89,4 @@ struct UsageSnapshot: Decodable, Equatable, Sendable {
         return (session, weekly)
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case rateLimit = "rate_limit"
-    }
-
-    private enum RateLimitKeys: String, CodingKey {
-        case primaryWindow = "primary_window"
-        case secondaryWindow = "secondary_window"
-    }
-
-    init(from decoder: Decoder) throws {
-        let root = try decoder.container(keyedBy: CodingKeys.self)
-        // `rate_limit` may be absent or null in edge cases — treat both
-        // windows as nil rather than failing to decode the snapshot.
-        guard
-            let rl = try? root.nestedContainer(keyedBy: RateLimitKeys.self, forKey: .rateLimit)
-        else {
-            self.session = nil
-            self.weekly = nil
-            self.bankedResetInfo = nil
-            return
-        }
-        let primary = try rl.decodeIfPresent(UsageWindow.self, forKey: .primaryWindow)
-        let secondary = try rl.decodeIfPresent(UsageWindow.self, forKey: .secondaryWindow)
-        (self.session, self.weekly) = Self.classify(primary: primary, secondary: secondary)
-        self.bankedResetInfo = nil
-    }
 }

@@ -9,11 +9,21 @@ actor AppServerProvider: UsageProvider {
         case requestRejected, notSignedIn
     }
 
+    private let executableOverride: URL?
+    private let timeout: Duration
+
+    init(executable: URL? = nil, timeout: Duration = .seconds(20)) {
+        self.executableOverride = executable
+        self.timeout = timeout
+    }
+
     private var pending: Task<UsageSnapshot, Error>?
 
     func fetchUsage() async throws -> UsageSnapshot {
         if let pending { return try await pending.value }
-        let task = Task { try await Self.fetch() }
+        let executable = executableOverride
+        let timeout = timeout
+        let task = Task { try await Self.fetch(executable: executable, timeout: timeout) }
         pending = task
         defer { pending = nil }
         return try await withTaskCancellationHandler {
@@ -35,9 +45,9 @@ actor AppServerProvider: UsageProvider {
         throw ProviderError.cliMissing
     }
 
-    private static func fetch() async throws -> UsageSnapshot {
+    private static func fetch(executable: URL?, timeout: Duration) async throws -> UsageSnapshot {
         let process = Process()
-        process.executableURL = try executable()
+        process.executableURL = try executable ?? Self.executable()
         process.arguments = ["app-server", "--stdio", "-c", "analytics.enabled=false"]
         let input = Pipe()
         let output = Pipe()
@@ -56,7 +66,7 @@ actor AppServerProvider: UsageProvider {
             throw ProviderError.launchFailed
         }
         var buffer = Data()
-        let deadline = ContinuousClock.now.advanced(by: .seconds(20))
+        let deadline = ContinuousClock.now.advanced(by: timeout)
 
         func send(_ message: [String: Any]) throws {
             var data = try JSONSerialization.data(withJSONObject: message)

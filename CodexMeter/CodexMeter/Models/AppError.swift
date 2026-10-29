@@ -1,9 +1,5 @@
-import Foundation
-
-/// Wraps the two error families the poller can produce so `UsageStore` /
-/// `UsagePopover` can render them uniformly.
+/// Errors presented by the usage store and popover.
 enum AppError: Error {
     case appServer(AppServerProvider.ProviderError)
-    case tokenRead(TokenReader.ReadError)
-    case api(CodexAPI.APIError)
+    case unexpected
 }
