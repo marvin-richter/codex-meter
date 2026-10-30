@@ -182,11 +182,13 @@ A small section with the radio + three checkboxes shown in the layout above:
 
 ### Footer
 
-A 1Hz `TimelineView` runs the "Updated X ago" line via `DurationFormatter.compact` (or "Updated just now" / "Updated 23s ago" for the under-minute range, "Loading…" / "Never refreshed" when no successful poll has happened).
+While the popover window is visible, a 1Hz `TimelineView` runs the "Updated X ago" line via `DurationFormatter.compact` (or "Updated just now" / "Updated 23s ago" for the under-minute range, "Loading…" / "Never refreshed" when no successful poll has happened).
 
 When the most recent poll failed but a cached snapshot is still showing, an `API currently unavailable` line appears in red beneath the timestamp. When `signInMessage` is non-nil (sign-in / scope / token-format errors), it shows in red below that.
 
 To the right: a `gearshape` settings link and an `arrow.clockwise` refresh button, both borderless. A `Quit Codex Meter` button on its own row at the bottom (⌘Q).
+
+All three popover timelines use an empty schedule while the window is hidden or fully occluded. Window occlusion notifications resume the normal 1s/60s schedules when visible; the provider polling cadence remains 60 seconds.
 
 ### Debug badge
 

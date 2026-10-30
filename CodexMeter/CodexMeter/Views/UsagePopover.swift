@@ -18,6 +18,7 @@ struct BankedResetStatus {
 /// `UsageStore` directly. The owner of the store is responsible for
 /// passing in callbacks for refresh / quit / sign-out actions.
 struct UsagePopover: View {
+    @State private var isWindowVisible = false
     let store: UsageStore
     let settings: AppSettings
     let onRefresh: () -> Void
@@ -51,7 +52,7 @@ struct UsagePopover: View {
                         )
                     }
                 }
-                TimelineView(.periodic(from: .now, by: 60)) { context in
+                TimelineView(VisiblePopoverSchedule(interval: 60, isVisible: isWindowVisible)) { context in
                     if let status = pacingStatus(now: context.date) {
                         Text(status.text)
                             .font(.footnote)
@@ -69,7 +70,7 @@ struct UsagePopover: View {
                 Divider()
 
                 sectionTitle("BANKED RESETS")
-                TimelineView(.periodic(from: .now, by: 60)) { context in
+                TimelineView(VisiblePopoverSchedule(interval: 60, isVisible: isWindowVisible)) { context in
                     bankedResetStatus(resetInfo, now: context.date)
                 }
             }
@@ -107,7 +108,7 @@ struct UsagePopover: View {
             Divider()
 
             HStack(spacing: 8) {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
+                TimelineView(VisiblePopoverSchedule(interval: 1, isVisible: isWindowVisible)) { context in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(footerText(now: context.date))
                             .font(.caption2)
@@ -150,6 +151,10 @@ struct UsagePopover: View {
         }
         .padding(14)
         .frame(width: 280)
+        .background {
+            PopoverWindowVisibility { isWindowVisible = $0 }
+                .frame(width: 0, height: 0)
+        }
     }
 
     /// Small uppercase header for the popover sections — same caption2/
@@ -452,4 +457,62 @@ private func bothWindowsSnapshot() -> UsageSnapshot {
     store.updateSnapshot(bothWindowsSnapshot(), at: Date().addingTimeInterval(-15 * 60))
     store.recordError(.appServer(.disconnected))
     return UsagePopover(store: store, settings: AppSettings(), onRefresh: {}, onQuit: {})
+}
+
+/// Hidden popovers retain their view tree; an empty schedule stops timer work.
+private struct VisiblePopoverSchedule: TimelineSchedule {
+    let interval: TimeInterval
+    let isVisible: Bool
+
+    func entries(from startDate: Date, mode: Mode) -> AnySequence<Date> {
+        guard isVisible else { return AnySequence([]) }
+        return AnySequence(
+            PeriodicTimelineSchedule(from: startDate, by: interval)
+                .entries(from: startDate, mode: mode)
+        )
+    }
+}
+
+/// Observe the actual window rather than view appearance, which can outlive
+/// the visible MenuBarExtra panel. Occlusion also pauses a fully covered panel.
+private struct PopoverWindowVisibility: NSViewRepresentable {
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> VisibilityView {
+        let view = VisibilityView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ nsView: VisibilityView, context: Context) {
+        nsView.onChange = onChange
+    }
+
+    @MainActor
+    final class VisibilityView: NSView {
+        var onChange: ((Bool) -> Void)?
+        private var observation: Task<Void, Never>?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            observation?.cancel()
+            observation = Task { @MainActor [weak self, weak window] in
+                let changes = NotificationCenter.default.notifications(
+                    named: NSWindow.didChangeOcclusionStateNotification,
+                    object: nil
+                )
+                self?.onChange?(window?.occlusionState.contains(.visible) == true)
+                for await notification in changes {
+                    guard !Task.isCancelled else { break }
+                    guard let changedWindow = notification.object as? NSWindow,
+                          changedWindow === window else { continue }
+                    self?.onChange?(window?.occlusionState.contains(.visible) == true)
+                }
+            }
+        }
+
+        deinit {
+            observation?.cancel()
+        }
+    }
 }
